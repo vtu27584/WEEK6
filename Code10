@@ -1,0 +1,127 @@
+import java.io.*;
+import java.math.*;
+import java.security.*;
+import java.text.*;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.function.*;
+import java.util.regex.*;
+import java.util.stream.*;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
+
+class Result {
+
+    /*
+     * Complete the 'circularPalindromes' function below.
+     *
+     * The function is expected to return an INTEGER_ARRAY.
+     * The function accepts STRING s as parameter.
+     */
+    public static List<Integer> circularPalindromes(String s) {
+        int n = s.length();
+        List<Integer> result = new ArrayList<>();
+        
+        // Handle edge case for empty or single-character string
+        if (n == 0) return result;
+        if (n == 1) {
+            result.add(1);
+            return result;
+        }
+
+        // 1. Duplicate the string to handle circular behavior linearly
+        String doubleStr = s + s;
+        int doubleLen = doubleStr.length();
+
+        // 2. Interleave with '#' to handle both odd and even length palindromes uniformly
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < doubleLen; i++) {
+            sb.append('#');
+            sb.append(doubleStr.charAt(i));
+        }
+        sb.append('#');
+        String mStr = sb.toString();
+        int mLen = mStr.length();
+
+        // 3. Run Manacher's Algorithm
+        int[] p = new int[mLen];
+        int center = 0, right = 0;
+        for (int i = 0; i < mLen; i++) {
+            int mirror = 2 * center - i;
+            if (i < right) {
+                p[i] = Math.min(right - i, p[mirror]);
+            }
+            while (i - 1 - p[i] >= 0 && i + 1 + p[i] < mLen && mStr.charAt(i - 1 - p[i]) == mStr.charAt(i + 1 + p[i])) {
+                p[i]++;
+            }
+            if (i + p[i] > right) {
+                center = i;
+                right = i + p[i];
+            }
+        }
+
+        // 4. Build a Sparse Table for O(1) Range Maximum Queries (RMQ)
+        int maxLog = (int) (Math.log(mLen) / Math.log(2)) + 1;
+        int[][] st = new int[mLen][maxLog];
+        for (int i = 0; i < mLen; i++) {
+            st[i][0] = p[i];
+        }
+        for (int j = 1; j < maxLog; j++) {
+            for (int i = 0; i + (1 << j) <= mLen; i++) {
+                st[i][j] = Math.max(st[i][j - 1], st[i + (1 << (j - 1))][j - 1]);
+            }
+        }
+
+        // Helper function to query the maximum value in a range [L, R] using the Sparse Table
+        BiFunction<Integer, Integer, Integer> rmq = (L, R) -> {
+            if (L > R) return 0;
+            int length = R - L + 1;
+            int k = (int) (Math.log(length) / Math.log(2));
+            return Math.max(st[L][k], st[R - (1 << k) + 1][k]);
+        };
+
+        // 5. Binary search the maximum palindrome length for each shift `k`
+        for (int k = 0; k < n; k++) {
+            int low = 1, high = n, ans = 0;
+            while (low <= high) {
+                int mid = low + (high - low) / 2;
+                
+                // Formulate boundaries in the interleaved Manacher string
+                int leftBound = 2 * k + mid;
+                int rightBound = 2 * k + 2 * n - mid;
+
+                if (leftBound <= rightBound && rmq.apply(leftBound, rightBound) >= mid) {
+                    ans = mid;
+                    low = mid + 1; // Try to find a longer palindrome
+                } else {
+                    high = mid - 1;
+                }
+            }
+            result.add(ans);
+        }
+
+        return result;
+    }
+}
+
+public class Code10 {
+    public static void main(String[] args) throws IOException {
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in));
+        BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(System.getenv("OUTPUT_PATH")));
+
+        int n = Integer.parseInt(bufferedReader.readLine().trim());
+        String s = bufferedReader.readLine();
+
+        List<Integer> result = Result.circularPalindromes(s);
+
+        bufferedWriter.write(
+            result.stream()
+                .map(Object::toString)
+                .collect(joining("\n"))
+            + "\n"
+        );
+
+        bufferedReader.close();
+        bufferedWriter.close();
+    }
+}
