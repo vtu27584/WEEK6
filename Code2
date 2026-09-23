@@ -1,0 +1,9 @@
+class Code2 {
+    public boolean repeatedSubstringPattern(String s) {
+        // Concatenate s with itself
+        String doubled = s + s;
+        
+        // Remove the first and last characters and check if the original string exists inside
+        return doubled.substring(1, doubled.length() - 1).contains(s);
+    }
+}
